@@ -49,7 +49,7 @@ angular.module('angular-inview', [])
 			# that will displace the inView calculation and a debounce to slow down updates
 			# via scrolling events.
 			if attrs.inViewOptions? and options = scope.$eval(attrs.inViewOptions)
-				item.offset = options.offset || [options.offsetTop or 0, options.offsetBottom or 0]
+				item.offset = options.offset || [options.offsetLeft or 0, options.offsetRight or 0]
 				if options.debounce
 					item.customDebouncedCheck = debounce ((event) -> checkInView [item], element[0], event), options.debounce
 			# A series of checks are set up to verify the status of the element visibility.
@@ -143,15 +143,15 @@ unbindWindowEvents = ->
 
 # ### InView checks
 # This method will call the user defined callback with the proper parameters if neccessary.
-triggerInViewCallback = (event, item, inview, isTopVisible, isBottomVisible) ->
+triggerInViewCallback = (event, item, inview, isLeftVisible, isRightVisible) ->
 	if inview
-		elOffsetTop = getBoundingClientRect(item.element[0]).top + window.pageYOffset
-		inviewpart = (isTopVisible and isBottomVisible and 'neither') or (isTopVisible and 'top') or (isBottomVisible and 'bottom') or 'both'
+		elOffsetLeft = getBoundingClientRect(item.element[0]).left + window.pageXOffset
+		inviewpart = (isLeftVisible and isRightVisible and 'neither') or (isLeftVisible and 'left') or (isRightVisible and 'right') or 'both'
 		# The callback will be called only if a relevant value has changed.
 		# However, if the element changed it's position (for example if it has been
 		# pushed down by dynamically loaded content), the callback will be called anyway.
-		unless item.wasInView and item.wasInView == inviewpart and elOffsetTop == item.lastOffsetTop
-			item.lastOffsetTop = elOffsetTop
+		unless item.wasInView and item.wasInView == inviewpart and elOffsetLeft == item.lastOffsetLeft
+			item.lastOffsetLeft = elOffsetLeft
 			item.wasInView = inviewpart
 			item.callback event, yes, inviewpart
 	else if item.wasInView
@@ -162,29 +162,29 @@ triggerInViewCallback = (event, item, inview, isTopVisible, isBottomVisible) ->
 checkInView = (items, container, event) ->
 	# It first calculate the viewport.
 	viewport =
-		top: 0
-		bottom: getViewportHeight()
+		left: 0
+		right: getViewportWidth()
 	# Restrict viewport if a container is specified.
 	if container and container isnt window
 		bounds = getBoundingClientRect container
 		# Shortcut to all item not in view if container isn't itself.
-		if bounds.top > viewport.bottom or bounds.bottom < viewport.top
+		if bounds.left > viewport.right or bounds.right < viewport.left
 			triggerInViewCallback(event, item, false) for item in items
 			return
 		# Actual viewport restriction.
-		viewport.top = bounds.top if bounds.top > viewport.top
-		viewport.bottom = bounds.bottom if bounds.bottom < viewport.bottom
+		viewport.left = bounds.left if bounds.left > viewport.left
+		viewport.right = bounds.right if bounds.right < viewport.right
 	# Calculate inview status for each item.
 	for item in items
 		# Get the bounding top and bottom of the element in the viewport.
 		element = item.element[0]
 		bounds = getBoundingClientRect element
 		# Apply offset.
-		boundsTop = bounds.top + parseInt(item.offset?[0] ? item.offset)
-		boundsBottom = bounds.bottom + parseInt(item.offset?[1] ? item.offset)
+		boundsLeft = bounds.left + parseInt(item.offset?[0] ? item.offset)
+		boundsRight = bounds.right + parseInt(item.offset?[1] ? item.offset)
 		# Calculate parts in view.
-		if boundsTop < viewport.bottom and boundsBottom >= viewport.top
-			triggerInViewCallback(event, item, true, boundsBottom > viewport.bottom, boundsTop < viewport.top)
+		if boundsLeft < viewport.right and boundsRight >= viewport.left
+			triggerInViewCallback(event, item, true, boundsRight > viewport.right, boundsLeft < viewport.left)
 		else
 			triggerInViewCallback(event, item, false)
 
@@ -199,21 +199,30 @@ getViewportHeight = ->
 		height = if mode is 'CSS1Compat' then document.documentElement.clientHeight else document.body.clientHeight
 	height
 
+# Returns the width of the window viewport
+getViewportWidth = ->
+	width = window.innerWidth
+	return width if width
+	mode = document.compatMode
+	if mode or not $?.support?.boxModel
+		width = if mode is 'CSS1Compat' then document.documentElement.clientWidth else document.body.clientWidth
+	width
+
 # Polyfill for `getBoundingClientRect`
 getBoundingClientRect = (element) ->
 	return element.getBoundingClientRect() if element.getBoundingClientRect?
-	top = 0
+	left = 0
 	el = element
 	while el
-		top += el.offsetTop
+		left += el.offsetLeft
 		el = el.offsetParent
 	parent = element.parentElement
 	while parent
-		top -= parent.scrollTop if parent.scrollTop?
+		left -= parent.scrollLeft if parent.scrollLeft?
 		parent = parent.parentElement
 	return {
-		top: top
-		bottom: top + element.offsetHeight
+		left: left
+		right: left + element.offsetWidth
 	}
 
 # Debounce a function.
